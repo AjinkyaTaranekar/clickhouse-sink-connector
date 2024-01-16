@@ -4,6 +4,7 @@ import static com.altinity.clickhouse.sink.connector.db.ClickHouseDbConstants.CH
 import com.clickhouse.jdbc.ClickHouseConnection;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ public class DBMetadata {
         REPLACING_MERGE_TREE("ReplacingMergeTree"),
 
         REPLICATED_REPLACING_MERGE_TREE("ReplicatedReplacingMergeTree"),
+        DISTRIBUTED("Distributed"),
 
         MERGE_TREE("MergeTree"),
 
@@ -115,6 +117,11 @@ public class DBMetadata {
                     } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;
                         result.right = getVersionColumnForReplacingMergeTree(response);
+                    } else if(response.contains(TABLE_ENGINE.DISTRIBUTED.engine)) {
+                        final Pair<String, String> databaseAndTable =
+                                getUnderlyingDatabaseAndTableOfDistributed(response);
+                        result = getTableEngineUsingShowTable(
+                                conn, databaseAndTable.getLeft(), databaseAndTable.getRight());
                     } else if(response.contains(TABLE_ENGINE.MERGE_TREE.engine)) {
                         result.left = TABLE_ENGINE.MERGE_TREE;
                     }else {
@@ -134,6 +141,7 @@ public class DBMetadata {
 
     public static final String COLLAPSING_MERGE_TREE_SIGN_PREFIX = "CollapsingMergeTree(";
     public static final String REPLACING_MERGE_TREE_VER_PREFIX = "ReplacingMergeTree(";
+    public static final String DISTRIBUTED_PREFIX = "Distributed(";
 
     public static final String REPLACING_MERGE_TREE_VERSION_WITH_IS_DELETED = "23.2";
     public static final String REPLICATED_REPLACING_MERGE_TREE_VER_PREFIX = "ReplicatedReplacingMergeTree(";
@@ -153,6 +161,33 @@ public class DBMetadata {
         }
 
         return signColumn;
+    }
+
+    /**
+     * Function to extract the underlying table and database for Distributed
+     * @param createDML
+     * @return Pair of Database and Table
+     */
+    public Pair<String, String> getUnderlyingDatabaseAndTableOfDistributed(String createDML) {
+
+        Pair<String, String> databaseAndTable = new MutablePair<>();
+        if(createDML.contains(TABLE_ENGINE.DISTRIBUTED.getEngine())) {
+            if(createDML != null && createDML.indexOf("(") != -1 && createDML.indexOf(")") != -1) {
+                String subString = StringUtils.substringBetween(createDML, DISTRIBUTED_PREFIX, ")");
+                if(subString != null) {
+                    final String[] options = subString.trim().split(",");
+                    if (options != null && options.length > 2) {
+                        final String database = options[1].trim().replace("'","");
+                        final String table = options[2].trim().replace("'","");
+                        databaseAndTable = new MutablePair<>(database, table);
+                    }
+                }
+            }
+        } else {
+            log.error("Error: Trying to retrieve database and table from distribute table that is not Distribute");
+        }
+
+        return databaseAndTable;
     }
 
     /**
@@ -208,7 +243,7 @@ public class DBMetadata {
                 ResultSet rs = stmt.executeQuery(showSchemaQuery);
                 if(rs.wasNull() == false && rs.next()) {
                     String response =  rs.getString(1);
-                    result = getEngineFromResponse(response);
+                    result = getEngineFromResponse(conn, response);
                 }
                 rs.close();
                 stmt.close();
@@ -221,7 +256,7 @@ public class DBMetadata {
         return result;
     }
 
-    public MutablePair<TABLE_ENGINE, String> getEngineFromResponse(String response) {
+    public MutablePair<TABLE_ENGINE, String> getEngineFromResponse(final ClickHouseConnection conn, final String response) {
         MutablePair<TABLE_ENGINE, String> result = new MutablePair<>();
 
         if(response.contains(TABLE_ENGINE.COLLAPSING_MERGE_TREE.engine)) {
@@ -230,6 +265,11 @@ public class DBMetadata {
         } else if(response.contains(TABLE_ENGINE.REPLACING_MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.REPLACING_MERGE_TREE;
             result.right = getVersionColumnForReplacingMergeTree(response);
+        } else if(response.contains(TABLE_ENGINE.DISTRIBUTED.engine)) {
+            final Pair<String, String> databaseAndTable =
+                    getUnderlyingDatabaseAndTableOfDistributed(response);
+            result = getTableEngineUsingSystemTables(
+                    conn, databaseAndTable.getLeft(), databaseAndTable.getRight());
         } else if(response.contains(TABLE_ENGINE.MERGE_TREE.engine)) {
             result.left = TABLE_ENGINE.MERGE_TREE;
         } else {
