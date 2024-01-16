@@ -17,6 +17,8 @@ public class ClickHouseDbConstants {
     public static final String SIGN_COLUMN_DATA_TYPE = "Int8";
 
     public static final String CREATE_TABLE = "CREATE TABLE";
+    public static final String INNER_TABLE_PREFIX = "_inner_";
+    public static final String ON_CLUSTER = "ON CLUSTER";
 
     public static final String NULL = "NULL";
     public static final String NOT_NULL = "NOT NULL";

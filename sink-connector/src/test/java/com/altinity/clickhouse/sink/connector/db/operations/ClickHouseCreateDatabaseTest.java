@@ -55,8 +55,9 @@ public class ClickHouseCreateDatabaseTest {
     public void testCreateNewDatabase() throws SQLException {
         ClickHouseCreateDatabase act = new ClickHouseCreateDatabase();
         ClickHouseConnection conn = dbWriter.getConnection();
+        ClickHouseSinkConnectorConfig config = new ClickHouseSinkConnectorConfig(new HashMap<>());
         try {
-            act.createNewDatabase(conn, dbName);
+            act.createNewDatabase(conn, dbName, config);
         } catch(SQLException se) {
             //System.out.println(se.getMessage());
             Assert.assertTrue(false);

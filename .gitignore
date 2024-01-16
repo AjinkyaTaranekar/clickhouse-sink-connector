@@ -52,3 +52,5 @@ tests/image/cache
 
 # Visual studio code
 .vscode/
+
+config-test.yml

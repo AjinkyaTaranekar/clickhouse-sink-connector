@@ -99,7 +99,7 @@ public class DbWriter extends BaseDbWriter {
             DBMetadata metadata = new DBMetadata();
             try {
                 if (false == metadata.checkIfDatabaseExists(this.conn, database)) {
-                    new ClickHouseCreateDatabase().createNewDatabase(this.conn, database);
+                    new ClickHouseCreateDatabase().createNewDatabase(this.conn, database, this.config);
                 }
             } catch(Exception e) {
                 log.error("Error creating Database", database);
@@ -121,8 +121,9 @@ public class DbWriter extends BaseDbWriter {
                         } else if(record.getBeforeStruct() != null) {
                             fields = record.getBeforeStruct().schema().fields().toArray(new Field[0]);
                         }
-
-                        act.createNewTable(record.getPrimaryKey(), tableName, fields, this.conn);
+                        final String clickHouseVersion = getClickHouseVersion();
+                        final Boolean isNewReplacingMergeTreeEngine = metadata.checkIfNewReplacingMergeTree(clickHouseVersion);
+                        act.createNewTable(record.getPrimaryKey(), tableName, fields, this.conn, this.config, isNewReplacingMergeTreeEngine);
                         this.columnNameToDataTypeMap = this.getColumnsDataTypesForTable(tableName);
                         response = metadata.getTableEngine(this.conn, database, tableName);
                         this.engine = response.getLeft();

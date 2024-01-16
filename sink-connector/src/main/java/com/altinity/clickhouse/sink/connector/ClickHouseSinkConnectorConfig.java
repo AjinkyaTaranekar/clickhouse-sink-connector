@@ -29,6 +29,8 @@ public class ClickHouseSinkConnectorConfig extends AbstractConfig {
 
     // Configuration group "clickhouse login info"
     private static final String CONFIG_GROUP_CLICKHOUSE_LOGIN_INFO = "ClickHouse Login Info";
+    // Configuration group "clickhouse cluster info"
+    private static final String CONFIG_GROUP_CLICKHOUSE_CLUSTER_INFO = "ClickHouse Cluster Info";
     // Configuration group "connector config"
     private static final String CONFIG_GROUP_CONNECTOR_CONFIG = "Connector Config";
     // Configuration group "de-duplicator config"
@@ -202,6 +204,26 @@ public class ClickHouseSinkConnectorConfig extends AbstractConfig {
                         3,
                         ConfigDef.Width.NONE,
                         ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_PORT.toString())
+                .define(
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER_ENABLED.toString(),
+                        Type.BOOLEAN,
+                        "false",
+                        Importance.MEDIUM,
+                        "True, if the cluster DDL has to be enabled, false otherwise",
+                        CONFIG_GROUP_CLICKHOUSE_CLUSTER_INFO,
+                        1,
+                        ConfigDef.Width.NONE,
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER_ENABLED.toString())
+                .define(
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER.toString(),
+                        Type.STRING,
+                        "cluster1",
+                        Importance.MEDIUM,
+                        "name of the cluster",
+                        CONFIG_GROUP_CLICKHOUSE_CLUSTER_INFO,
+                        2,
+                        ConfigDef.Width.NONE,
+                        ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER.toString())
                 .define(
                         ClickHouseSinkConnectorConfigVariables.STORE_KAFKA_METADATA.toString(),
                         Type.BOOLEAN,

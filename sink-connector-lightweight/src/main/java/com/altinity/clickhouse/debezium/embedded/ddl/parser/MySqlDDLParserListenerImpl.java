@@ -11,6 +11,7 @@ import io.debezium.ddl.parser.mysql.generated.MySqlParser.AlterByAddColumnContex
 import io.debezium.ddl.parser.mysql.generated.MySqlParser.TableNameContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNodeImpl;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +29,7 @@ public class MySqlDDLParserListenerImpl extends MySQLDDLParserBaseListener {
     private static final Logger log = LoggerFactory.getLogger(MySqlDDLParserListenerImpl.class);
     StringBuffer query;
     String tableName;
+    String innerTableName;
     ClickHouseSinkConnectorConfig config;
     ZoneId userProvidedTimeZone;
 
@@ -35,6 +37,7 @@ public class MySqlDDLParserListenerImpl extends MySQLDDLParserBaseListener {
                                       ClickHouseSinkConnectorConfig config) {
         this.query = transformedQuery;
         this.tableName = tableName;
+        this.innerTableName = "`" + INNER_TABLE_PREFIX + this.tableName.replace("`", "") + "`";
         this.config = config;
 
         this.userProvidedTimeZone = parseTimeZone();
@@ -95,7 +98,16 @@ public class MySqlDDLParserListenerImpl extends MySQLDDLParserBaseListener {
     public void enterColumnCreateTable(MySqlParser.ColumnCreateTableContext columnCreateTableContext) {
         StringBuilder orderByColumns = new StringBuilder();
         StringBuilder partitionByColumn = new StringBuilder();
-        Set<String> columnNames = parseCreateTable(columnCreateTableContext, orderByColumns, partitionByColumn);
+        
+        Boolean isClusterEnabled = this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER_ENABLED.toString());
+        final String clusterName = this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER.toString());
+        final String databaseName = this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_DATABASE.toString());
+
+        if (isClusterEnabled && StringUtils.isBlank(clusterName)) {
+            isClusterEnabled = Boolean.FALSE;
+        }
+
+        Set<String> columnNames = parseCreateTable(columnCreateTableContext, orderByColumns, partitionByColumn, isClusterEnabled, clusterName, databaseName);
         //this.query.append(" Engine=")
         String isDeletedColumn = IS_DELETED_COLUMN;
         if(columnNames.contains(isDeletedColumn)) {
@@ -112,30 +124,54 @@ public class MySqlDDLParserListenerImpl extends MySQLDDLParserBaseListener {
         this.query.append(")");
         if(DebeziumChangeEventCapture.isNewReplacingMergeTreeEngine == true) {
             this.query.append(" Engine=ReplacingMergeTree(").append(VERSION_COLUMN).append(",").append(isDeletedColumn).append(")");
-        } else
+        } else {
             this.query.append(" Engine=ReplacingMergeTree(").append(VERSION_COLUMN).append(")");
+        }
 
         if(partitionByColumn.length() > 0) {
             this.query.append(Constants.PARTITION_BY).append(" ").append(partitionByColumn);
         }
         if(orderByColumns.length() == 0) {
-        this.query.append(Constants.ORDER_BY_TUPLE);
+            this.query.append(Constants.ORDER_BY_TUPLE);
         } else {
             this.query.append(Constants.ORDER_BY).append(orderByColumns.toString());
+        }
+        this.query.append(";");
+        if (isClusterEnabled) {
+            this.query.append(CREATE_TABLE).append(" ").append(databaseName).append(".").append(this.tableName);
+            this.query.append(" AS ").append(databaseName).append(this.innerTableName);
+            this.query.append(" Engine=Distributed(").append(clusterName).append(",").append(databaseName).append(",").append(this.innerTableName);
+            if(orderByColumns.length() != 0) {
+                this.query.append(",").append(orderByColumns.toString());
+            }
+            this.query.append(")").append(";");
         }
 
     }
 
-    private Set<String> parseCreateTable(MySqlParser.CreateTableContext ctx, StringBuilder orderByColumns,
-                                  StringBuilder partitionByColumns) {
+    private Set<String> parseCreateTable(
+            MySqlParser.CreateTableContext ctx,
+            StringBuilder orderByColumns,
+            StringBuilder partitionByColumns,
+            Boolean isClusterEnabled,
+            String databaseName,
+            String clusterName) {
         List<ParseTree> pt = ctx.children;
         Set<String> columnNames = new HashSet<>();
 
         this.query.append(Constants.CREATE_TABLE).append(" ");
+
         for (ParseTree tree : pt) {
 
             if (tree instanceof TableNameContext) {
-                this.query.append(tree.getText()).append("(");
+                this.tableName = tree.getText();
+                this.innerTableName = "`" + INNER_TABLE_PREFIX + this.tableName.replace("`", "") + "`";
+                if (isClusterEnabled) {
+                    this.query.append(databaseName).append(".").append(INNER_TABLE_PREFIX).append(tableName.replace("`", "")).append(" ").append(ON_CLUSTER).append(" ").append(clusterName);
+                } else {
+                    this.query.append(databaseName).append(".").append(tableName);
+                }
+                this.query.append("(");
             }else if(tree instanceof MySqlParser.IfNotExistsContext) {
                 this.query.append(Constants.IF_NOT_EXISTS);
             }else if (tree instanceof MySqlParser.CreateDefinitionsContext) {
