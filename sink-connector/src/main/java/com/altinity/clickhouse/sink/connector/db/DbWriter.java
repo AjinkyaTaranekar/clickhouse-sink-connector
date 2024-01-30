@@ -109,6 +109,11 @@ public class DbWriter extends BaseDbWriter {
 
             long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID.toString());
 
+            log.info(
+                    String.format(
+                            "**** Cluster Enabled: %s, Cluster Name: %s *** ",
+                            this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER_ENABLED.toString()),
+                            this.config.getString(ClickHouseSinkConnectorConfigVariables.CLICKHOUSE_CLUSTER.toString())));
             //ToDO: Is this a reliable way of checking if the table exists already.
             if (this.engine == null) {
                 if (this.config.getBoolean(ClickHouseSinkConnectorConfigVariables.AUTO_CREATE_TABLES.toString())) {
@@ -421,6 +426,7 @@ public class DbWriter extends BaseDbWriter {
     public BlockMetaData addToPreparedStatementBatch(String topicName, Map<MutablePair<String, Map<String, Integer>>,
             List<ClickHouseStruct>> queryToRecordsMap, BlockMetaData bmd) throws Exception {
 
+        long startTime = System.nanoTime();
         Iterator<Map.Entry<MutablePair<String, Map<String, Integer>>, List<ClickHouseStruct>>> iter = queryToRecordsMap.entrySet().iterator();
         while(iter.hasNext()) {
             Map.Entry<MutablePair<String, Map<String, Integer>>, List<ClickHouseStruct>> entry = iter.next();
@@ -438,6 +444,9 @@ public class DbWriter extends BaseDbWriter {
 
         }
 
+        long totalTime = System.nanoTime() - startTime;
+        log.info("*** QUERY FINISHED in " + totalTime + " ns ***");
+
         return bmd;
     }
 
@@ -450,6 +459,7 @@ public class DbWriter extends BaseDbWriter {
 
         // Split the records into batches.
         Lists.partition(entry.getValue(), (int)maxRecordsInBatch).forEach(batch -> {
+            long batchStartTime = System.nanoTime();
 
             ArrayList<ClickHouseStruct> truncatedRecords = new ArrayList<>();
             try (PreparedStatement ps = this.conn.prepareStatement(insertQuery)) {
@@ -484,9 +494,10 @@ public class DbWriter extends BaseDbWriter {
                 }
 
                 int[] result = ps.executeBatch();
+                long batchTotalTime = System.nanoTime() - batchStartTime;
 
                 long taskId = this.config.getLong(ClickHouseSinkConnectorConfigVariables.TASK_ID.toString());
-                log.info("*************** EXECUTED BATCH Successfully " + "Records: " + batch.size() + "************** task(" + taskId + ")" + " Thread ID: " + Thread.currentThread().getName());
+                log.info("*************** EXECUTED BATCH Successfully " + "Records: " + batch.size() + ". In time:" + batchTotalTime + "ns ************** task(" + taskId + ")" + " Thread ID: " + Thread.currentThread().getName());
 
             } catch (Exception e) {
                 Metrics.updateErrorCounters(topicName, entry.getValue().size());
