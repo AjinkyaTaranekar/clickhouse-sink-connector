@@ -41,6 +41,8 @@ public class ConfigLoader {
         for (Map.Entry<String, Object> entry : yamlFile.entrySet()) {
             if(entry.getValue() instanceof Integer) {
                 props.setProperty(entry.getKey(), Integer.toString((Integer) entry.getValue()));
+            } else if(entry.getValue() instanceof Boolean) {
+                props.setProperty(entry.getKey(), String.valueOf(Boolean.parseBoolean(entry.getValue().toString())));
             } else {
                 String value = entry.getValue().toString();
                 props.setProperty(entry.getKey(), value.replace("\"", ""));
