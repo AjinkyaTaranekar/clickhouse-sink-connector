@@ -79,7 +79,7 @@ public class ClickHouseDebeziumEmbeddedApplication {
                 Properties fileProps = new ConfigLoader().loadFromFile(args[0]);
                 props.putAll(fileProps);
             } catch(Exception e) {
-                log.error("Error parsing configuration file, USAGE: java -jar <jar_file> <yaml_config_file>: \n" + e.toString());
+                log.error("Error parsing configuration file, USAGE: java -jar <jar_file> <yaml_config_file>: \n", e);
                 System.exit(-1);
             }
         } else {
