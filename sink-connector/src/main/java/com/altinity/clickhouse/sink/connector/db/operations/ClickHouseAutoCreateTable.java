@@ -147,9 +147,6 @@ public class ClickHouseAutoCreateTable extends ClickHouseTableOperationsBase{
             createTableSyntax.append(CREATE_TABLE).append(" ").append(databaseName).append(".").append(tableName);
             createTableSyntax.append(" AS ").append(databaseName).append(".").append(innerTableName);
             createTableSyntax.append(" Engine=Distributed(").append(clusterName).append(",").append(databaseName).append(",").append(innerTableName);
-            if (primaryKey != null && isPrimaryKeyColumnPresent(primaryKey, columnToDataTypesMap)) {
-                createTableSyntax.append(",").append(primaryKey.stream().map(Object::toString).collect(Collectors.joining(",")));
-            }
             createTableSyntax.append(")").append(";");
         }
        return createTableSyntax.toString();

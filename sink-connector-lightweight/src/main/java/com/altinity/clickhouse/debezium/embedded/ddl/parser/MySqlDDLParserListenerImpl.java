@@ -141,9 +141,6 @@ public class MySqlDDLParserListenerImpl extends MySQLDDLParserBaseListener {
             this.query.append(CREATE_TABLE).append(" ").append(databaseName).append(".").append(this.tableName);
             this.query.append(" AS ").append(databaseName).append(".").append(this.innerTableName);
             this.query.append(" Engine=Distributed(").append(clusterName).append(",").append(databaseName).append(",").append(this.innerTableName);
-            if(orderByColumns.length() != 0) {
-                this.query.append(",").append(orderByColumns.toString());
-            }
             this.query.append(")").append(";");
         }
 
