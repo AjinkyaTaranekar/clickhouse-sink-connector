@@ -107,7 +107,7 @@ public class MySqlDDLParserListenerImpl extends MySQLDDLParserBaseListener {
             isClusterEnabled = Boolean.FALSE;
         }
 
-        Set<String> columnNames = parseCreateTable(columnCreateTableContext, orderByColumns, partitionByColumn, isClusterEnabled, clusterName, databaseName);
+        Set<String> columnNames = parseCreateTable(columnCreateTableContext, orderByColumns, partitionByColumn, isClusterEnabled, databaseName, clusterName);
         //this.query.append(" Engine=")
         String isDeletedColumn = IS_DELETED_COLUMN;
         if(columnNames.contains(isDeletedColumn)) {
@@ -139,7 +139,7 @@ public class MySqlDDLParserListenerImpl extends MySQLDDLParserBaseListener {
         this.query.append(";");
         if (isClusterEnabled) {
             this.query.append(CREATE_TABLE).append(" ").append(databaseName).append(".").append(this.tableName);
-            this.query.append(" AS ").append(databaseName).append(this.innerTableName);
+            this.query.append(" AS ").append(databaseName).append(".").append(this.innerTableName);
             this.query.append(" Engine=Distributed(").append(clusterName).append(",").append(databaseName).append(",").append(this.innerTableName);
             if(orderByColumns.length() != 0) {
                 this.query.append(",").append(orderByColumns.toString());
